@@ -9,22 +9,27 @@ app.use(cors());
 
 // Airtable API Config
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
-const AIRTABLE_ACCESS_TOKEN = process.env.AIRTABLE_ACCESS_TOKEN; // KORRIGIERT
+const AIRTABLE_ACCESS_TOKEN = process.env.AIRTABLE_ACCESS_TOKEN;
 const TABLE_NAME = 'Grit-Auto-Demo';
 const AIRTABLE_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${TABLE_NAME}`;
 
-// Header für Airtable API (KORRIGIERT)
+// Header für Airtable API
 const airtableHeaders = {
-    'Authorization': `Bearer ${AIRTABLE_ACCESS_TOKEN}`, // KORRIGIERT
+    'Authorization': `Bearer ${AIRTABLE_ACCESS_TOKEN}`,
     'Content-Type': 'application/json'
 };
+
+// Root-Route für Health-Check (wichtig für Railway!)
+app.get('/', (req, res) => {
+    res.send("Airtable Backend läuft!");
+});
 
 // Alle Termine abrufen
 app.get('/api/termine', async (req, res) => {
     try {
         const response = await axios.get(AIRTABLE_URL, { headers: airtableHeaders });
 
-        // Datum & Uhrzeit formatieren (Falls nötig)
+        // Datum & Uhrzeit formatieren
         const formattedData = response.data.records.map(record => ({
             id: record.id,
             kunde: record.fields.kunde || '',
@@ -70,7 +75,7 @@ app.delete('/api/termine/:id', async (req, res) => {
 });
 
 // Server starten
-const PORT = process.env.PORT || 4000;  // neuer Port 4000
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`Server läuft auf Port ${PORT}`);
 });
