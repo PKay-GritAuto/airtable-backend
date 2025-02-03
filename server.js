@@ -52,6 +52,31 @@ app.get('/api/termine', async (req, res) => {
     }
 });
 
+// Terminverfügbarkeit prüfen
+app.get('/api/pruefe-termin', async (req, res) => {
+    const { datum, uhrzeit, dienstleistung } = req.query;
+
+    try {
+        const response = await axios.get(AIRTABLE_URL, { headers: airtableHeaders });
+
+        // Alle bestehenden Termine durchsuchen
+        const termine = response.data.records.map(record => ({
+            terminDatum: record.fields.terminDatum || '',
+            terminZeit: record.fields.terminZeit || '',
+            dienstleistung: record.fields.dienstleistung || '',
+        }));
+
+        // Prüfen, ob der Termin bereits existiert
+        const terminVorhanden = termine.some(t => 
+            t.terminDatum === datum && t.terminZeit === uhrzeit && t.dienstleistung === dienstleistung
+        );
+
+        res.json({ verfuegbar: !terminVorhanden });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Neuen Termin hinzufügen
 app.post('/api/termine', async (req, res) => {
     const { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email } = req.body;
