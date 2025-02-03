@@ -77,6 +77,58 @@ app.get('/api/pruefe-termin', async (req, res) => {
     }
 });
 
+// Neuen Termin hinzufügen – /api/schreibe-termin
+app.post('/api/schreibe-termin', async (req, res) => {
+    try {
+        // ✅ 1. Request-Daten auslesen
+        const { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email } = req.body;
+
+        // ✅ 2. Grundvalidierung der Felder
+        if (!kunde || !telefonnummer || !terminDatum || !terminZeit || !dienstleistung) {
+            return res.status(400).json({ error: "Fehlende Felder! Bitte alle erforderlichen Daten senden." });
+        }
+
+        // ✅ 3. Telefonnummer formatieren (sichert +49 oder führende 0)
+        let formattedTelefonnummer = telefonnummer.trim();
+        if (formattedTelefonnummer.startsWith("0")) {
+            formattedTelefonnummer = "+49" + formattedTelefonnummer.substring(1);
+        }
+
+        // ✅ 4. Daten für Airtable vorbereiten
+        const airtableData = {
+            records: [{
+                fields: {
+                    kunde,
+                    telefonnummer: formattedTelefonnummer,
+                    terminDatum,
+                    terminZeit,
+                    dienstleistung,
+                    status: status || "Geplant", // Standardwert setzen
+                    email: email || "" // Falls kein E-Mail vorhanden ist
+                }
+            }]
+        };
+
+        // ✅ 5. Anfrage an Airtable senden
+        const response = await axios.post(AIRTABLE_URL, airtableData, { headers: airtableHeaders });
+
+        // ✅ 6. Erfolgreiche Antwort zurückgeben
+        res.json({
+            success: true,
+            message: "Termin erfolgreich gespeichert!",
+            data: response.data
+        });
+
+    } catch (error) {
+        console.error("Fehler beim Erstellen eines Termins:", error.response ? error.response.data : error.message);
+        res.status(500).json({ 
+            error: "Serverfehler beim Speichern des Termins",
+            details: error.response ? error.response.data : "Keine weiteren Informationen"
+        });
+    }
+});
+
+
 // Neuen Termin hinzufügen
 app.post('/api/termine', async (req, res) => {
     const { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email } = req.body;
