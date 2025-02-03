@@ -55,6 +55,10 @@ app.get('/api/termine', async (req, res) => {
 // Neuen Termin hinzufügen
 app.post('/api/termine', async (req, res) => {
     const { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email } = req.body;
+
+     // 🔍 Logging der empfangenen Daten
+    console.log("📤 Gesendete Daten an Airtable:", { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email });
+    
     try {
         const response = await axios.post(AIRTABLE_URL, {
             records: [{
