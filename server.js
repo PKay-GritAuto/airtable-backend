@@ -67,8 +67,12 @@ app.post('/api/termine', async (req, res) => {
         }, { headers: airtableHeaders });
 
         res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+     } catch (error) {
+        console.error("Fehler bei der Termin-Erstellung:", error.response ? error.response.data : error.message);
+        res.status(500).json({ 
+            error: error.message, 
+            details: error.response ? error.response.data : "Keine zusätzlichen Details verfügbar" 
+        });
     }
 });
 
