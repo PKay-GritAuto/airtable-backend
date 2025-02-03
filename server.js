@@ -23,7 +23,12 @@ const airtableHeaders = {
 app.get('/', (req, res) => {
     res.send("Airtable Backend läuft!");
 });
-
+app.get('/check-env', (req, res) => {
+    res.json({
+        AIRTABLE_BASE_ID: AIRTABLE_BASE_ID,
+        AIRTABLE_ACCESS_TOKEN: AIRTABLE_ACCESS_TOKEN ? 'EXISTS' : 'MISSING'
+    });
+});
 // Alle Termine abrufen
 app.get('/api/termine', async (req, res) => {
     try {
