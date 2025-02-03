@@ -10,7 +10,7 @@ app.use(cors());
 // Airtable API Config
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
 const AIRTABLE_ACCESS_TOKEN = process.env.AIRTABLE_ACCESS_TOKEN;
-const TABLE_NAME = 'Grit-Auto-Demo';
+const TABLE_NAME = 'GritAutoDemo';
 const AIRTABLE_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${TABLE_NAME}`;
 
 // Header für Airtable API
