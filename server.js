@@ -21,20 +21,22 @@ const airtableHeaders = {
 
 // Root-Route für Health-Check (wichtig für Railway!)
 app.get('/', (req, res) => {
-    res.send("Airtable Backend läuft!");
+    res.send("✅ Airtable Backend läuft!");
 });
+
+// Umgebung checken
 app.get('/check-env', (req, res) => {
     res.json({
         AIRTABLE_BASE_ID: AIRTABLE_BASE_ID,
         AIRTABLE_ACCESS_TOKEN: AIRTABLE_ACCESS_TOKEN ? 'EXISTS' : 'MISSING'
     });
 });
-// Alle Termine abrufen
+
+// 🔍 **Alle Termine abrufen**
 app.get('/api/termine', async (req, res) => {
     try {
         const response = await axios.get(AIRTABLE_URL, { headers: airtableHeaders });
 
-        // Datum & Uhrzeit formatieren
         const formattedData = response.data.records.map(record => ({
             id: record.id,
             kunde: record.fields.kunde || '',
@@ -52,21 +54,19 @@ app.get('/api/termine', async (req, res) => {
     }
 });
 
-// Terminverfügbarkeit prüfen
+// 🔍 **Terminverfügbarkeit prüfen**
 app.get('/api/pruefe-termin', async (req, res) => {
     const { datum, uhrzeit, dienstleistung } = req.query;
 
     try {
         const response = await axios.get(AIRTABLE_URL, { headers: airtableHeaders });
 
-        // Alle bestehenden Termine durchsuchen
         const termine = response.data.records.map(record => ({
             terminDatum: record.fields.terminDatum || '',
             terminZeit: record.fields.terminZeit || '',
             dienstleistung: record.fields.dienstleistung || '',
         }));
 
-        // Prüfen, ob der Termin bereits existiert
         const terminVorhanden = termine.some(t => 
             t.terminDatum === datum && t.terminZeit === uhrzeit && t.dienstleistung === dienstleistung
         );
@@ -77,7 +77,7 @@ app.get('/api/pruefe-termin', async (req, res) => {
     }
 });
 
-// Neuen Termin hinzufügen – /api/schreibe-termin
+// 📝 **Neuen Termin hinzufügen (Haupt-POST-Endpunkt für Voiceflow)**
 app.post('/api/schreibe-termin', async (req, res) => {
     try {
         // ✅ 1. Request-Daten auslesen
@@ -85,16 +85,20 @@ app.post('/api/schreibe-termin', async (req, res) => {
 
         // ✅ 2. Grundvalidierung der Felder
         if (!kunde || !telefonnummer || !terminDatum || !terminZeit || !dienstleistung) {
+            console.error("❌ Fehlende Felder:", { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, email });
             return res.status(400).json({ error: "Fehlende Felder! Bitte alle erforderlichen Daten senden." });
         }
 
-        // ✅ 3. Telefonnummer formatieren (sichert +49 oder führende 0)
+        // ✅ 3. Telefonnummer formatieren (+49 oder führende 0 korrigieren)
         let formattedTelefonnummer = telefonnummer.trim();
         if (formattedTelefonnummer.startsWith("0")) {
             formattedTelefonnummer = "+49" + formattedTelefonnummer.substring(1);
         }
 
-        // ✅ 4. Daten für Airtable vorbereiten
+        // ✅ 4. Logging für Debugging
+        console.log("📤 Eingehende Daten:", { kunde, telefonnummer: formattedTelefonnummer, terminDatum, terminZeit, dienstleistung, status, email });
+
+        // ✅ 5. Daten für Airtable vorbereiten
         const airtableData = {
             records: [{
                 fields: {
@@ -109,10 +113,11 @@ app.post('/api/schreibe-termin', async (req, res) => {
             }]
         };
 
-        // ✅ 5. Anfrage an Airtable senden
+        // ✅ 6. Anfrage an Airtable senden
         const response = await axios.post(AIRTABLE_URL, airtableData, { headers: airtableHeaders });
 
-        // ✅ 6. Erfolgreiche Antwort zurückgeben
+        // ✅ 7. Erfolgreiche Antwort zurückgeben
+        console.log("✅ Termin erfolgreich gespeichert:", response.data);
         res.json({
             success: true,
             message: "Termin erfolgreich gespeichert!",
@@ -120,7 +125,7 @@ app.post('/api/schreibe-termin', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Fehler beim Erstellen eines Termins:", error.response ? error.response.data : error.message);
+        console.error("⚠️ Fehler beim Speichern:", error.response ? error.response.data : error.message);
         res.status(500).json({ 
             error: "Serverfehler beim Speichern des Termins",
             details: error.response ? error.response.data : "Keine weiteren Informationen"
@@ -128,44 +133,19 @@ app.post('/api/schreibe-termin', async (req, res) => {
     }
 });
 
-
-// Neuen Termin hinzufügen
-app.post('/api/termine', async (req, res) => {
-    const { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email } = req.body;
-
-     // 🔍 Logging der empfangenen Daten
-    console.log("📤 Gesendete Daten an Airtable:", { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email });
-    
-    try {
-        const response = await axios.post(AIRTABLE_URL, {
-            records: [{
-                fields: { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email }
-            }]
-        }, { headers: airtableHeaders });
-
-        res.json(response.data);
-     } catch (error) {
-        console.error("Fehler bei der Termin-Erstellung:", error.response ? error.response.data : error.message);
-        res.status(500).json({ 
-            error: error.message, 
-            details: error.response ? error.response.data : "Keine zusätzlichen Details verfügbar" 
-        });
-    }
-});
-
-// Einen Termin löschen
+// 🗑 **Einen Termin löschen**
 app.delete('/api/termine/:id', async (req, res) => {
     const { id } = req.params;
     try {
         const response = await axios.delete(`${AIRTABLE_URL}/${id}`, { headers: airtableHeaders });
-        res.json({ message: 'Termin gelöscht!', response: response.data });
+        res.json({ message: '✅ Termin gelöscht!', response: response.data });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Server starten
+// 🚀 **Server starten**
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-    console.log(`Server läuft auf Port ${PORT}`);
+    console.log(`✅ Server läuft auf Port ${PORT}`);
 });
