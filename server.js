@@ -80,10 +80,12 @@ app.get('/api/pruefe-termin', async (req, res) => {
 // 📝 **Neuen Termin hinzufügen (Haupt-POST-Endpunkt für Voiceflow)**
 app.post('/api/schreibe-termin', async (req, res) => {
     try {
-        // ✅ 1. Request-Daten auslesen
+        // ✅ 1. Request-Daten auslesen (Voiceflow-Daten prüfen)
+        console.log("📥 Eingehender Voiceflow-Request:", req.body);
+        
         const { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email } = req.body;
 
-        // ✅ 2. Grundvalidierung der Felder
+        // ✅ 2. Prüfen, ob Voiceflow alle Daten sendet
         if (!kunde || !telefonnummer || !terminDatum || !terminZeit || !dienstleistung) {
             console.error("❌ Fehlende Felder:", { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, email });
             return res.status(400).json({ error: "Fehlende Felder! Bitte alle erforderlichen Daten senden." });
@@ -95,8 +97,16 @@ app.post('/api/schreibe-termin', async (req, res) => {
             formattedTelefonnummer = "+49" + formattedTelefonnummer.substring(1);
         }
 
-        // ✅ 4. Logging für Debugging
-        console.log("📤 Eingehende Daten:", { kunde, telefonnummer: formattedTelefonnummer, terminDatum, terminZeit, dienstleistung, status, email });
+        // ✅ 4. Logging für Debugging (Nach Korrektur)
+        console.log("📤 Nach Korrektur - Eingehende Daten:", { 
+            kunde, 
+            telefonnummer: formattedTelefonnummer, 
+            terminDatum, 
+            terminZeit, 
+            dienstleistung, 
+            status, 
+            email 
+        });
 
         // ✅ 5. Daten für Airtable vorbereiten
         const airtableData = {
