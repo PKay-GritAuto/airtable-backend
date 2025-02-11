@@ -38,7 +38,7 @@ app.post('/api/schreibe-termin', async (req, res) => {
             uhrzeit,        // Voiceflow sendet das als {15:00}
             dienstleistung,
             status,
-            email
+            email           // Voiceflow sendet das als {philipp.kaiser92@gmail.com}
         } = req.body;
 
         // ✅ 3. Datum ins richtige `YYYY-MM-DD` Format bringen
@@ -79,19 +79,28 @@ app.post('/api/schreibe-termin', async (req, res) => {
             }
         }
 
-        // ✅ 5. Fehlende Felder prüfen
+        // ✅ 5. E-Mail-Adresse bereinigen
+        let formattedEmail = email ? email.replace(/[{} ]/g, '').trim() : "";
+
+        // **Überprüfung, ob die E-Mail gültig ist**
+        if (formattedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formattedEmail)) {
+            console.error("❌ Ungültige E-Mail-Adresse:", formattedEmail);
+            return res.status(400).json({ error: "Ungültige E-Mail! Erwartetes Format: name@example.com" });
+        }
+
+        // ✅ 6. Fehlende Felder prüfen
         if (!kunde || !telefonnummer || !Termin_Datum || !Termin_Uhrzeit || !dienstleistung) {
-            console.error("❌ Fehlende Felder:", { kunde, telefonnummer, Termin_Datum, Termin_Uhrzeit, dienstleistung, email });
+            console.error("❌ Fehlende Felder:", { kunde, telefonnummer, Termin_Datum, Termin_Uhrzeit, dienstleistung, formattedEmail });
             return res.status(400).json({ error: "Fehlende Felder! Bitte alle erforderlichen Daten senden." });
         }
 
-        // ✅ 6. Telefonnummer formatieren (z.B. +49 statt führende 0)
+        // ✅ 7. Telefonnummer formatieren (z.B. +49 statt führende 0)
         let formattedTelefonnummer = telefonnummer.trim();
         if (formattedTelefonnummer.startsWith("0")) {
             formattedTelefonnummer = "+49" + formattedTelefonnummer.substring(1);
         }
 
-        // ✅ 7. Debugging-Log für korrigierte Werte
+        // ✅ 8. Debugging-Log für korrigierte Werte
         console.log("📤 Nach Korrektur - Eingehende Daten:", { 
             kunde, 
             telefonnummer: formattedTelefonnummer, 
@@ -99,10 +108,10 @@ app.post('/api/schreibe-termin', async (req, res) => {
             Termin_Uhrzeit, 
             dienstleistung, 
             status, 
-            email 
+            email: formattedEmail
         });
 
-        // ✅ 8. Daten für Airtable vorbereiten
+        // ✅ 9. Daten für Airtable vorbereiten
         const airtableData = {
             records: [{
                 fields: {
@@ -112,15 +121,15 @@ app.post('/api/schreibe-termin', async (req, res) => {
                     Termin_Uhrzeit,
                     dienstleistung,
                     status: status || "Geplant",
-                    email: email || ""
+                    email: formattedEmail
                 }
             }]
         };
 
-        // ✅ 9. Anfrage an Airtable senden
+        // ✅ 10. Anfrage an Airtable senden
         const response = await axios.post(AIRTABLE_URL, airtableData, { headers: airtableHeaders });
 
-        // ✅ 10. Erfolgreiche Antwort zurückgeben
+        // ✅ 11. Erfolgreiche Antwort zurückgeben
         console.log("✅ Termin erfolgreich gespeichert:", response.data);
         res.json({
             success: true,
