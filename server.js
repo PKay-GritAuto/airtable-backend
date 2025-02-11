@@ -88,21 +88,28 @@ app.post('/api/schreibe-termin', async (req, res) => {
 
         // ✅ 3. Datum ins korrekte Format bringen
         let Termin_Datum = datum ? new Date(datum).toISOString().split("T")[0] : null;
-        let Termin_Uhrzeit = uhrzeit || null;
 
-        // ✅ 4. Fehlende Felder prüfen
+        // ✅ 4. Uhrzeit formatieren (nur Stunden & Minuten)
+        let Termin_Uhrzeit = uhrzeit ? uhrzeit.replace(/[{}]/g, '').trim() : null;
+
+        // Falls Airtable eine vollständige Uhrzeit erwartet:
+        if (Termin_Uhrzeit && Termin_Uhrzeit.length === 5) {
+            Termin_Uhrzeit += ":00"; // Sekundengenauigkeit hinzufügen ("15:00:00")
+        }
+
+        // ✅ 5. Fehlende Felder prüfen
         if (!kunde || !telefonnummer || !Termin_Datum || !Termin_Uhrzeit || !dienstleistung) {
             console.error("❌ Fehlende Felder:", { kunde, telefonnummer, Termin_Datum, Termin_Uhrzeit, dienstleistung, email });
             return res.status(400).json({ error: "Fehlende Felder! Bitte alle erforderlichen Daten senden." });
         }
 
-        // ✅ 5. Telefonnummer formatieren (z.B. +49 statt führende 0)
+        // ✅ 6. Telefonnummer formatieren (z.B. +49 statt führende 0)
         let formattedTelefonnummer = telefonnummer.trim();
         if (formattedTelefonnummer.startsWith("0")) {
             formattedTelefonnummer = "+49" + formattedTelefonnummer.substring(1);
         }
 
-        // ✅ 6. Debugging-Log für korrigierte Werte
+        // ✅ 7. Debugging-Log für korrigierte Werte
         console.log("📤 Nach Korrektur - Eingehende Daten:", { 
             kunde, 
             telefonnummer: formattedTelefonnummer, 
@@ -113,7 +120,7 @@ app.post('/api/schreibe-termin', async (req, res) => {
             email 
         });
 
-        // ✅ 7. Daten für Airtable vorbereiten
+        // ✅ 8. Daten für Airtable vorbereiten
         const airtableData = {
             records: [{
                 fields: {
@@ -128,10 +135,10 @@ app.post('/api/schreibe-termin', async (req, res) => {
             }]
         };
 
-        // ✅ 8. Anfrage an Airtable senden
+        // ✅ 9. Anfrage an Airtable senden
         const response = await axios.post(AIRTABLE_URL, airtableData, { headers: airtableHeaders });
 
-        // ✅ 9. Erfolgreiche Antwort zurückgeben
+        // ✅ 10. Erfolgreiche Antwort zurückgeben
         console.log("✅ Termin erfolgreich gespeichert:", response.data);
         res.json({
             success: true,
