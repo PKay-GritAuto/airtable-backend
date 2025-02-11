@@ -19,7 +19,7 @@ const airtableHeaders = {
     'Content-Type': 'application/json'
 };
 
-// Root-Route für Health-Check (wichtig für Railway!)
+// ✅ Health-Check (Wichtig für Railway)
 app.get('/', (req, res) => {
     res.send("✅ Airtable Backend läuft!");
 });
@@ -86,29 +86,35 @@ app.post('/api/schreibe-termin', async (req, res) => {
             email
         } = req.body;
 
-        // ✅ 3. Datum ins korrekte Format bringen
-        let Termin_Datum = datum ? new Date(datum).toISOString().split("T")[0] : null;
+        // ✅ 3. Datum ins korrekte Format bringen (YYYY-MM-DD)
+        let Termin_Datum = null;
+        if (datum) {
+            let parsedDate = new Date(datum);
+            if (!isNaN(parsedDate.getTime())) {
+                Termin_Datum = parsedDate.toISOString().split("T")[0];
+            } else {
+                console.error("❌ Ungültiges Datumsformat:", datum);
+                return res.status(400).json({ error: "Ungültiges Datum! Erwartetes Format: YYYY-MM-DD" });
+            }
+        }
 
         // ✅ 4. Uhrzeit ins `HH:mm` Format konvertieren
         let Termin_Uhrzeit = null;
         if (uhrzeit) {
-            // Klammern, Leerzeichen und unerwünschte Zeichen entfernen
-            Termin_Uhrzeit = uhrzeit.replace(/[{} ]/g, '').trim();
+            Termin_Uhrzeit = uhrzeit.replace(/[{} ]/g, '').trim(); // `{15:00}` → `15:00`
+            Termin_Uhrzeit = Termin_Uhrzeit.replace(/\./g, ":").replace(/-/g, ":"); // `15.00` → `15:00`
 
-            // Falls Uhrzeit im Format HH.mm oder HH-mm vorliegt → zu HH:mm umwandeln
-            Termin_Uhrzeit = Termin_Uhrzeit.replace(/\./g, ":").replace(/-/g, ":");
-
-            // Falls das Format HH:mm:ss ist → nur HH:mm nehmen
+            // Falls `HH:mm:ss`, entferne Sekunden (`15:00:30` → `15:00`)
             if (/^\d{1,2}:\d{2}:\d{2}$/.test(Termin_Uhrzeit)) {
                 Termin_Uhrzeit = Termin_Uhrzeit.substring(0, 5);
             }
 
-            // Falls Stunde einstellig ist (z. B. 9:30), eine führende Null hinzufügen
+            // Falls Stunde einstellig ist (`9:30` → `09:30`)
             if (/^\d:\d{2}$/.test(Termin_Uhrzeit)) {
                 Termin_Uhrzeit = "0" + Termin_Uhrzeit;
             }
 
-            // Falls das Format nach der Konvertierung nicht `HH:mm` ist → Fehler
+            // Falls das Format immer noch nicht `HH:mm` ist → Fehler
             if (!/^\d{2}:\d{2}$/.test(Termin_Uhrzeit)) {
                 console.error("❌ Ungültiges Zeitformat:", Termin_Uhrzeit);
                 return res.status(400).json({ error: "Ungültige Uhrzeit! Erwartetes Format: HH:mm" });
@@ -170,16 +176,6 @@ app.post('/api/schreibe-termin', async (req, res) => {
             error: "Serverfehler beim Speichern des Termins",
             details: error.response ? error.response.data : "Keine weiteren Informationen"
         });
-    }
-});
-// 🗑 **Einen Termin löschen**
-app.delete('/api/termine/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-        const response = await axios.delete(`${AIRTABLE_URL}/${id}`, { headers: airtableHeaders });
-        res.json({ message: '✅ Termin gelöscht!', response: response.data });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
     }
 });
 
