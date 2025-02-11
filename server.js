@@ -24,14 +24,6 @@ app.get('/', (req, res) => {
     res.send("✅ Airtable Backend läuft!");
 });
 
-// Umgebung checken
-app.get('/check-env', (req, res) => {
-    res.json({
-        AIRTABLE_BASE_ID: AIRTABLE_BASE_ID,
-        AIRTABLE_ACCESS_TOKEN: AIRTABLE_ACCESS_TOKEN ? 'EXISTS' : 'MISSING'
-    });
-});
-
 // 🔍 **Alle Termine abrufen**
 app.get('/api/termine', async (req, res) => {
     try {
@@ -41,8 +33,8 @@ app.get('/api/termine', async (req, res) => {
             id: record.id,
             kunde: record.fields.kunde || '',
             telefonnummer: record.fields.telefonnummer || '',
-            terminDatum: record.fields.terminDatum || '',
-            terminZeit: record.fields.terminZeit || '',
+            Termin_Datum: record.fields.Termin_Datum || '',
+            Termin_Uhrzeit: record.fields.Termin_Uhrzeit || '',
             dienstleistung: record.fields.dienstleistung || '',
             status: record.fields.status || '',
             email: record.fields.email || ''
@@ -56,19 +48,19 @@ app.get('/api/termine', async (req, res) => {
 
 // 🔍 **Terminverfügbarkeit prüfen**
 app.get('/api/pruefe-termin', async (req, res) => {
-    const { datum, uhrzeit, dienstleistung } = req.query;
+    const { Termin_Datum, Termin_Uhrzeit, dienstleistung } = req.query;
 
     try {
         const response = await axios.get(AIRTABLE_URL, { headers: airtableHeaders });
 
         const termine = response.data.records.map(record => ({
-            terminDatum: record.fields.terminDatum || '',
-            terminZeit: record.fields.terminZeit || '',
+            Termin_Datum: record.fields.Termin_Datum || '',
+            Termin_Uhrzeit: record.fields.Termin_Uhrzeit || '',
             dienstleistung: record.fields.dienstleistung || '',
         }));
 
         const terminVorhanden = termine.some(t => 
-            t.terminDatum === datum && t.terminZeit === uhrzeit && t.dienstleistung === dienstleistung
+            t.Termin_Datum === Termin_Datum && t.Termin_Uhrzeit === Termin_Uhrzeit && t.dienstleistung === dienstleistung
         );
 
         res.json({ verfuegbar: !terminVorhanden });
@@ -77,56 +69,69 @@ app.get('/api/pruefe-termin', async (req, res) => {
     }
 });
 
-// 📝 **Neuen Termin hinzufügen (Haupt-POST-Endpunkt für Voiceflow)**
+// 📝 **Neuen Termin hinzufügen (Voiceflow POST-Request)**
 app.post('/api/schreibe-termin', async (req, res) => {
     try {
-        // ✅ 1. Request-Daten auslesen (Voiceflow-Daten prüfen)
+        // ✅ 1. Eingehende Daten loggen
         console.log("📥 Eingehender Voiceflow-Request:", req.body);
-        
-        const { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, status, email } = req.body;
 
-        // ✅ 2. Prüfen, ob Voiceflow alle Daten sendet
-        if (!kunde || !telefonnummer || !terminDatum || !terminZeit || !dienstleistung) {
-            console.error("❌ Fehlende Felder:", { kunde, telefonnummer, terminDatum, terminZeit, dienstleistung, email });
+        // ✅ 2. Mapping von alten zu neuen Variablennamen (Falls Voiceflow `datum` und `uhrzeit` sendet)
+        const {
+            kunde,
+            telefonnummer,
+            datum,          // Alte Schreibweise aus Voiceflow
+            uhrzeit,        // Alte Schreibweise aus Voiceflow
+            dienstleistung,
+            status,
+            email
+        } = req.body;
+
+        // ✅ 3. Variablen auf neue Namen mappen (falls nötig)
+        const Termin_Datum = datum;  // Mapping: "datum" → "Termin_Datum"
+        const Termin_Uhrzeit = uhrzeit;  // Mapping: "uhrzeit" → "Termin_Uhrzeit"
+
+        // ✅ 4. Fehlende Felder prüfen
+        if (!kunde || !telefonnummer || !Termin_Datum || !Termin_Uhrzeit || !dienstleistung) {
+            console.error("❌ Fehlende Felder:", { kunde, telefonnummer, Termin_Datum, Termin_Uhrzeit, dienstleistung, email });
             return res.status(400).json({ error: "Fehlende Felder! Bitte alle erforderlichen Daten senden." });
         }
 
-        // ✅ 3. Telefonnummer formatieren (+49 oder führende 0 korrigieren)
+        // ✅ 5. Telefonnummer formatieren (z.B. +49 statt führende 0)
         let formattedTelefonnummer = telefonnummer.trim();
         if (formattedTelefonnummer.startsWith("0")) {
             formattedTelefonnummer = "+49" + formattedTelefonnummer.substring(1);
         }
 
-        // ✅ 4. Logging für Debugging (Nach Korrektur)
+        // ✅ 6. Debugging-Log für korrigierte Werte
         console.log("📤 Nach Korrektur - Eingehende Daten:", { 
             kunde, 
             telefonnummer: formattedTelefonnummer, 
-            terminDatum, 
-            terminZeit, 
+            Termin_Datum, 
+            Termin_Uhrzeit, 
             dienstleistung, 
             status, 
             email 
         });
 
-        // ✅ 5. Daten für Airtable vorbereiten
+        // ✅ 7. Daten für Airtable vorbereiten
         const airtableData = {
             records: [{
                 fields: {
                     kunde,
                     telefonnummer: formattedTelefonnummer,
-                    terminDatum,
-                    terminZeit,
+                    Termin_Datum,
+                    Termin_Uhrzeit,
                     dienstleistung,
-                    status: status || "Geplant", // Standardwert setzen
-                    email: email || "" // Falls kein E-Mail vorhanden ist
+                    status: status || "Geplant",
+                    email: email || ""
                 }
             }]
         };
 
-        // ✅ 6. Anfrage an Airtable senden
+        // ✅ 8. Anfrage an Airtable senden
         const response = await axios.post(AIRTABLE_URL, airtableData, { headers: airtableHeaders });
 
-        // ✅ 7. Erfolgreiche Antwort zurückgeben
+        // ✅ 9. Erfolgreiche Antwort zurückgeben
         console.log("✅ Termin erfolgreich gespeichert:", response.data);
         res.json({
             success: true,
