@@ -19,54 +19,9 @@ const airtableHeaders = {
     'Content-Type': 'application/json'
 };
 
-// ✅ Health-Check (Wichtig für Railway)
+// ✅ Health-Check für Railway
 app.get('/', (req, res) => {
     res.send("✅ Airtable Backend läuft!");
-});
-
-// 🔍 **Alle Termine abrufen**
-app.get('/api/termine', async (req, res) => {
-    try {
-        const response = await axios.get(AIRTABLE_URL, { headers: airtableHeaders });
-
-        const formattedData = response.data.records.map(record => ({
-            id: record.id,
-            kunde: record.fields.kunde || '',
-            telefonnummer: record.fields.telefonnummer || '',
-            Termin_Datum: record.fields.Termin_Datum || '',
-            Termin_Uhrzeit: record.fields.Termin_Uhrzeit || '',
-            dienstleistung: record.fields.dienstleistung || '',
-            status: record.fields.status || '',
-            email: record.fields.email || ''
-        }));
-
-        res.json(formattedData);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 🔍 **Terminverfügbarkeit prüfen**
-app.get('/api/pruefe-termin', async (req, res) => {
-    const { Termin_Datum, Termin_Uhrzeit, dienstleistung } = req.query;
-
-    try {
-        const response = await axios.get(AIRTABLE_URL, { headers: airtableHeaders });
-
-        const termine = response.data.records.map(record => ({
-            Termin_Datum: record.fields.Termin_Datum || '',
-            Termin_Uhrzeit: record.fields.Termin_Uhrzeit || '',
-            dienstleistung: record.fields.dienstleistung || '',
-        }));
-
-        const terminVorhanden = termine.some(t => 
-            t.Termin_Datum === Termin_Datum && t.Termin_Uhrzeit === Termin_Uhrzeit && t.dienstleistung === dienstleistung
-        );
-
-        res.json({ verfuegbar: !terminVorhanden });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
 });
 
 // 📝 **Neuen Termin hinzufügen (Voiceflow POST-Request)**
@@ -79,26 +34,29 @@ app.post('/api/schreibe-termin', async (req, res) => {
         const {
             kunde,
             telefonnummer,
-            datum,          // Alte Schreibweise aus Voiceflow
-            uhrzeit,        // Alte Schreibweise aus Voiceflow
+            datum,          // Voiceflow sendet das als {2025-02-11}
+            uhrzeit,        // Voiceflow sendet das als {15:00}
             dienstleistung,
             status,
             email
         } = req.body;
 
-        // ✅ 3. Datum ins korrekte Format bringen (YYYY-MM-DD)
+        // ✅ 3. Datum ins richtige `YYYY-MM-DD` Format bringen
         let Termin_Datum = null;
         if (datum) {
-            let parsedDate = new Date(datum);
+            Termin_Datum = datum.replace(/[{} ]/g, '').trim(); // `{2025-02-11}` → `2025-02-11`
+            
+            // Prüfen, ob das Datum gültig ist
+            let parsedDate = new Date(Termin_Datum);
             if (!isNaN(parsedDate.getTime())) {
-                Termin_Datum = parsedDate.toISOString().split("T")[0];
+                Termin_Datum = parsedDate.toISOString().split("T")[0]; // Konvertiere ins offizielle `YYYY-MM-DD` Format
             } else {
-                console.error("❌ Ungültiges Datumsformat:", datum);
+                console.error("❌ Ungültiges Datumsformat:", Termin_Datum);
                 return res.status(400).json({ error: "Ungültiges Datum! Erwartetes Format: YYYY-MM-DD" });
             }
         }
 
-        // ✅ 4. Uhrzeit ins `HH:mm` Format konvertieren
+        // ✅ 4. Uhrzeit ins `HH:mm` Format umwandeln
         let Termin_Uhrzeit = null;
         if (uhrzeit) {
             Termin_Uhrzeit = uhrzeit.replace(/[{} ]/g, '').trim(); // `{15:00}` → `15:00`
