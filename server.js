@@ -75,7 +75,7 @@ app.post('/api/schreibe-termin', async (req, res) => {
         // ✅ 1. Eingehende Daten loggen
         console.log("📥 Eingehender Voiceflow-Request:", req.body);
 
-        // ✅ 2. Mapping von alten zu neuen Variablennamen (Falls Voiceflow `datum` und `uhrzeit` sendet)
+        // ✅ 2. Variablen auslesen
         const {
             kunde,
             telefonnummer,
@@ -86,9 +86,9 @@ app.post('/api/schreibe-termin', async (req, res) => {
             email
         } = req.body;
 
-        // ✅ 3. Variablen auf neue Namen mappen (falls nötig)
-        const Termin_Datum = datum;  // Mapping: "datum" → "Termin_Datum"
-        const Termin_Uhrzeit = uhrzeit;  // Mapping: "uhrzeit" → "Termin_Uhrzeit"
+        // ✅ 3. Datum ins korrekte Format bringen
+        let Termin_Datum = datum ? new Date(datum).toISOString().split("T")[0] : null;
+        let Termin_Uhrzeit = uhrzeit || null;
 
         // ✅ 4. Fehlende Felder prüfen
         if (!kunde || !telefonnummer || !Termin_Datum || !Termin_Uhrzeit || !dienstleistung) {
@@ -119,7 +119,7 @@ app.post('/api/schreibe-termin', async (req, res) => {
                 fields: {
                     kunde,
                     telefonnummer: formattedTelefonnummer,
-                    Termin_Datum,
+                    Termin_Datum,  // Jetzt im richtigen Format
                     Termin_Uhrzeit,
                     dienstleistung,
                     status: status || "Geplant",
